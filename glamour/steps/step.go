@@ -119,9 +119,9 @@ func (sm *StepManager) Init() tea.Cmd {
 
 func GenerateSteps() []Step {
 	return []Step{
-		NewStep1(),
-		NewStep2(),
-		NewStep3(),
+		// NewStep1(),
+		// NewStep2(),
+		// NewStep3(),
 		NewStep4(),
 		NewStep5(),
 	}

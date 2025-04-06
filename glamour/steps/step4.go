@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dop251/goja"
 )
 
 var (
@@ -16,26 +17,33 @@ var (
 		Padding(1)
 )
 
-// Step4 is the fourth challenge step - fix the code
+// Step4 is the fourth challenge step - fix async code
 type Step4 struct {
 	BaseStep
 	textarea textarea.Model
 	question string
-	solution string
 	errorMsg string
 	code     string
 }
 
 // NewStep4 creates a new Step4 instance
 func NewStep4() *Step4 {
-	// Broken code with a bug
-	brokenCode := `func reverseString(s string) string {
-    r := []rune(s)
-    for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
-        // Something wrong here
-        r[i] = r[j]
-    }
-    return string(r)
+	// Broken JavaScript code with a promise-related bug
+	brokenCode := `async function fetchUserData(users) {
+  const userData = [];
+  
+  for (const user of users) {
+    fetchUser(user).then(data => {
+      userData.push(data);
+    });
+  }
+  
+  return userData;
+}
+
+// Mock function (don't modify)
+function fetchUser(user) {
+  return Promise.resolve({ id: user, name: 'User ' + user });
 }`
 
 	// Create a textarea for the code
@@ -44,12 +52,13 @@ func NewStep4() *Step4 {
 	ta.Focus()
 	ta.ShowLineNumbers = true
 	ta.Placeholder = "Fix the code here"
+	ta.SetWidth(100)
+	ta.SetHeight(20)
 
 	return &Step4{
-		BaseStep: NewBaseStep("Code Debugging"),
+		BaseStep: NewBaseStep("Async JavaScript Debugging"),
 		textarea: ta,
-		question: "Fix the Go function that attempts to reverse a string.\nThe current implementation has a bug.",
-		solution: "r[i], r[j] = r[j], r[i]",
+		question: "Fix the JavaScript function that fetches user data.\nThe current implementation has a bug with promises.",
 		errorMsg: "",
 		code:     brokenCode,
 	}
@@ -67,20 +76,67 @@ func (s *Step4) Update(msg tea.Msg) (Step, tea.Cmd) {
 		if msg.String() == "ctrl+s" || msg.String() == "ctrl+d" {
 			// Check the solution
 			code := s.textarea.Value()
-			if strings.Contains(code, s.solution) {
+			if s.evaluateCode(code) {
 				s.MarkCompleted()
-				s.errorMsg = "Well done! The code is fixed."
-				return s, nil
-			} else {
-				s.errorMsg = "The code is still not correct. Look at how you swap the characters."
+				s.errorMsg = "Well done! The async code is fixed."
 				return s, nil
 			}
+			return s, nil
 		}
 	}
 
 	var cmd tea.Cmd
 	s.textarea, cmd = s.textarea.Update(msg)
 	return s, cmd
+}
+
+// evaluateCode runs the user's JavaScript solution and checks if it works
+func (s *Step4) evaluateCode(code string) bool {
+	vm := goja.New()
+
+	testCode := code + `
+	// Test the function
+	async function testFetchUserData() {
+		const users = [1, 2, 3];
+		const result = await fetchUserData(users);
+		
+		// Check if we have all users
+		if (result.length !== 3) {
+			throw new Error("Expected 3 users, got " + result.length);
+		}
+		
+		// Check if all users are present
+		for (let i = 0; i < users.length; i++) {
+			const user = result.find(u => u.id === users[i]);
+			if (!user) {
+				throw new Error("User " + users[i] + " not found in results");
+			}
+		}
+		
+		return true;
+	}
+	
+	// Run the test
+	let success = false;
+	testFetchUserData().then(result => {
+		success = result;
+	});
+	`
+
+	_, err := vm.RunString(testCode)
+	if err != nil {
+		s.errorMsg = "JavaScript error: " + err.Error()
+		return false
+	}
+
+	// Check if the solution contains either Promise.all or await in the loop
+	if !strings.Contains(code, "Promise.all") && !strings.Contains(code, "await fetchUser") {
+		s.errorMsg = "Your solution should handle promises correctly. Think about how to wait for all promises to resolve."
+		return false
+	}
+
+	s.errorMsg = "Your solution handles the promises correctly!"
+	return true
 }
 
 // View returns the view for this step
