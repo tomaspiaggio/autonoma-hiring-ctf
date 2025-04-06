@@ -101,6 +101,14 @@ func (sm *StepManager) UpdateCurrentStep(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
+func (sm *StepManager) SetCurrentStep(step int) {
+	sm.CurrentStep = step
+}
+
+func (sm *StepManager) GetCompletedSteps() int {
+	return sm.CurrentStep
+}
+
 // Init initializes the step manager
 func (sm *StepManager) Init() tea.Cmd {
 	if len(sm.Steps) > 0 {
@@ -111,10 +119,10 @@ func (sm *StepManager) Init() tea.Cmd {
 
 func GenerateSteps() []Step {
 	return []Step{
-		// NewStep1(),
-		// NewStep2(),
-		// NewStep3(),
-		// NewStep4(),
+		NewStep1(),
+		NewStep2(),
+		NewStep3(),
+		NewStep4(),
 		NewStep5(),
 	}
 }

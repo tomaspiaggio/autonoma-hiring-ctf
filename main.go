@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/keygen"
 	"github.com/charmbracelet/lipgloss"
@@ -54,11 +53,10 @@ var (
 	emailStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#04B575"))
 
-	// Styles for the viewport
-	borderStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#626262")).
-			Padding(1)
+	// Tab styles
+	highlightColor = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+	docStyle       = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	windowStyle    = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
 )
 
 // Define key bindings
@@ -78,10 +76,6 @@ func (k keyMap) FullHelp() [][]key.Binding {
 }
 
 var keys = keyMap{
-	Quit: key.NewBinding(
-		key.WithKeys("q", "ctrl+c"),
-		key.WithHelp("q/ctrl+c", "quit"),
-	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
@@ -98,7 +92,7 @@ type model struct {
 	emailInput   textinput.Model
 	emailEntered bool
 	stepManager  *steps.StepManager
-	viewport     viewport.Model
+	activeTab    int
 	ready        bool
 }
 
@@ -116,10 +110,6 @@ func initialModel() model {
 	// Create step manager
 	sm := steps.NewStepManager(allSteps)
 
-	// Create viewport (will be initialized properly in tea.WindowSizeMsg)
-	vp := viewport.New(80, 24)
-	vp.Style = borderStyle
-
 	return model{
 		keys:         keys,
 		help:         help.New(),
@@ -129,10 +119,25 @@ func initialModel() model {
 		emailInput:   ti,
 		emailEntered: false,
 		stepManager:  sm,
-		viewport:     vp,
+		activeTab:    0,
 		ready:        false,
 	}
 }
+
+func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
+	border := lipgloss.RoundedBorder()
+	border.BottomLeft = left
+	border.Bottom = middle
+	border.BottomRight = right
+	return border
+}
+
+var (
+	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
+	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
+	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
+	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
+)
 
 func tickEvery() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
@@ -157,8 +162,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case common.TickMsg:
 		m.stepManager.UpdateCurrentStep(msg)
-
-		// when i receive a tick, i'll schedule the next one
 		return m, tickEvery()
 
 	case tea.KeyMsg:
@@ -171,7 +174,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.emailEntered {
 			if msg.String() == "enter" && m.emailInput.Value() != "" {
 				m.emailEntered = true
-				m.viewport.GotoTop()
 				m.stepManager.Steps = steps.GenerateSteps()
 				return m, nil
 			}
@@ -184,46 +186,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if stepCmd != nil {
 				cmds = append(cmds, stepCmd)
 			}
-
-			// If it's a viewport navigational key, handle it
-			switch msg.String() {
-			case "up", "k", "ctrl+u", "pgup":
-				m.viewport.LineUp(1)
-			case "down", "j", "ctrl+d", "pgdown":
-				m.viewport.LineDown(1)
-			}
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.help.Width = msg.Width
-
-		if !m.ready {
-			// Initialize viewport now that we know the terminal size
-			headerHeight := 6 // title + time + step title
-			footerHeight := 2 // help text
-			verticalMargins := 4
-
-			m.viewport = viewport.New(
-				msg.Width-2, // account for borders
-				msg.Height-headerHeight-footerHeight-verticalMargins,
-			)
-			m.viewport.Style = borderStyle
-			m.viewport.SetContent(m.stepManager.CurrentStepView())
-			m.ready = true
-		} else {
-			m.viewport.Width = msg.Width - 4
-			m.viewport.Height = msg.Height - 12
-		}
-	}
-
-	// Update viewport
-	if m.ready && m.emailEntered {
-		m.viewport.SetContent(m.stepManager.CurrentStepView())
-		var viewportCmd tea.Cmd
-		m.viewport, viewportCmd = m.viewport.Update(msg)
-		cmds = append(cmds, viewportCmd)
+		m.ready = true
 	}
 
 	return m, tea.Batch(cmds...)
@@ -233,8 +202,6 @@ func (m model) View() string {
 	if !m.ready {
 		return "Initializing..."
 	}
-
-	var s string
 
 	// Calculate time left
 	timeLeft := challengeDuration - time.Since(m.startTime)
@@ -253,7 +220,7 @@ func (m model) View() string {
 		tweet := titleStyle.Render("Tweet 'ssh ctf.autonoma.app' to get 10 extra minutes")
 		timeDisplay := timeStyle.Render(timeLeftStr)
 
-		s = fmt.Sprintf("\n\n  %s\t%s\n\n  %s\n\n  %s\n\n  %s\n\n",
+		s := fmt.Sprintf("\n\n  %s\t%s\n\n  %s\n\n  %s\n\n  %s\n\n",
 			title,
 			timeDisplay,
 			tweet,
@@ -282,31 +249,99 @@ func (m model) View() string {
 		return s
 	}
 
-	// After email entered, show the main UI with current step
+	// After email entered, show the tabbed UI
+	doc := strings.Builder{}
+
+	// Header with title and time
 	title := titleStyle.Render("Autonoma CTF Challenge")
 	timeDisplay := timeStyle.Render(timeLeftStr)
-	stepTitle := stepTitleStyle.Render(m.stepManager.CurrentStepTitle())
 	emailDisplay := emailStyle.Render("Email: " + m.emailInput.Value())
 
-	// Header
-	s = fmt.Sprintf("\n  %s\t%s\t%s\n\n  %s\n\n",
+	header := fmt.Sprintf("\n  %s\t%s\t%s\n",
 		title,
 		emailDisplay,
 		timeDisplay,
-		stepTitle,
 	)
+	doc.WriteString(header)
 
-	// Main content area with viewport
-	s += m.viewport.View() + "\n\n"
+	// Create tabs
+	var renderedTabs []string
+	var tabNames []string
 
-	// Help footer
-	helpView := helpStyle.Render(fmt.Sprintf("  %s • %s",
-		"↑/↓: Navigate",
-		"q: Quit",
-	))
-	s += helpView
+	// Get current progress to know which steps are unlocked
+	completedSteps := m.stepManager.GetCompletedSteps()
 
-	return s
+	for i, step := range m.stepManager.Steps {
+		// Show step name or locked indicator
+		tabName := step.Title()
+		if i > completedSteps {
+			tabName = "****"
+		}
+		tabNames = append(tabNames, tabName)
+	}
+
+	for i, t := range tabNames {
+		var style lipgloss.Style
+		isFirst, isLast, isActive := i == 0, i == len(tabNames)-1, i == m.activeTab
+
+		// Only allow selecting unlocked tabs
+		if m.activeTab > completedSteps {
+			m.activeTab = completedSteps
+			m.stepManager.SetCurrentStep(m.activeTab)
+		}
+
+		if isActive {
+			style = activeTabStyle
+		} else {
+			style = inactiveTabStyle
+		}
+
+		// If tab is locked, use a different style
+		if i > completedSteps {
+			style = style.Foreground(lipgloss.Color("#626262"))
+		}
+
+		border, _, _, _, _ := style.GetBorder()
+		if isFirst && isActive {
+			border.BottomLeft = "│"
+		} else if isFirst && !isActive {
+			border.BottomLeft = "├"
+		} else if isLast && isActive {
+			border.BottomRight = "│"
+		} else if isLast && !isActive {
+			border.BottomRight = "┤"
+		}
+		style = style.Border(border)
+		renderedTabs = append(renderedTabs, style.Render(t))
+	}
+
+	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
+	doc.WriteString(row)
+	doc.WriteString("\n")
+
+	// Set current step based on active tab
+	// m.stepManager.SetCurrentStep(m.activeTab)
+
+	// Content area
+	tabContent := m.stepManager.CurrentStepView()
+	doc.WriteString(windowStyle.Width(m.width - 4).Height(m.height - 10).Render(tabContent))
+
+	return doc.String()
+}
+
+// Helper functions
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // teaHandler creates a new bubbletea program for each ssh session
