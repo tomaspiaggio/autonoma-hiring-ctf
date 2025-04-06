@@ -109,7 +109,7 @@ func buildConstraints() []constraint {
 			},
 		},
 		{
-			description: "The Roman numerals must sum to less than 100",
+			description: "The Roman numerals must sum to less than 100 and more than 10",
 			validate: func(s string) (bool, string) {
 				values := map[rune]int{'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
 				sum := 0
@@ -118,8 +118,8 @@ func buildConstraints() []constraint {
 						sum += val
 					}
 				}
-				if sum >= 100 {
-					return false, fmt.Sprintf("Roman numeral sum is %d, must be < 100", sum)
+				if sum >= 100 || sum <= 10 {
+					return false, fmt.Sprintf("Roman numeral sum is %d, must be < 100 and > 10", sum)
 				}
 				return true, ""
 			},
@@ -149,7 +149,7 @@ func buildConstraints() []constraint {
 			},
 		},
 		{
-			description: "Password must contain the area of a triangle with height 10 and base 4",
+			description: "Password must contain the area of a triangle with height 10 and base 4 (lowercase text)",
 			validate: func(s string) (bool, string) {
 				// Area = (base * height) / 2 = (4 * 10) / 2 = 20
 				if strings.Contains(strings.ToLower(s), "twenty") {

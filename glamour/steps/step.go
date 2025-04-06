@@ -108,3 +108,13 @@ func (sm *StepManager) Init() tea.Cmd {
 	}
 	return nil
 }
+
+func GenerateSteps() []Step {
+	return []Step{
+		// NewStep1(),
+		// NewStep2(),
+		// NewStep3(),
+		// NewStep4(),
+		NewStep5(),
+	}
+}

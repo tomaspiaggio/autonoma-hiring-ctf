@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/wish"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/charmbracelet/wish/logging"
+	"github.com/tomaspiaggio/autonoma-hiring-ctf/common"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/glamour/steps"
 )
 
@@ -110,13 +111,7 @@ func initialModel() model {
 	ti.Prompt = "Email: "
 
 	// Create all steps
-	allSteps := []steps.Step{
-		steps.NewStep1(),
-		steps.NewStep2(),
-		steps.NewStep3(),
-		steps.NewStep4(),
-		steps.NewStep5(),
-	}
+	allSteps := []steps.Step{}
 
 	// Create step manager
 	sm := steps.NewStepManager(allSteps)
@@ -139,8 +134,15 @@ func initialModel() model {
 	}
 }
 
+func tickEvery() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return common.TickMsg(t)
+	})
+}
+
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
+		tickEvery(),
 		textinput.Blink,
 		m.stepManager.Init(),
 	)
@@ -153,6 +155,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
+	case common.TickMsg:
+		m.stepManager.UpdateCurrentStep(msg)
+
+		// when i receive a tick, i'll schedule the next one
+		return m, tickEvery()
+
 	case tea.KeyMsg:
 		// Global keybindings
 		if key.Matches(msg, m.keys.Quit) {
@@ -164,6 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "enter" && m.emailInput.Value() != "" {
 				m.emailEntered = true
 				m.viewport.GotoTop()
+				m.stepManager.Steps = steps.GenerateSteps()
 				return m, nil
 			}
 

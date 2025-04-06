@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/ssh v0.0.0-20250213143314-8712ec3ff3ef
 	github.com/charmbracelet/wish v1.4.7
+	github.com/dop251/goja v0.0.0-20250309171923-bcd7cc6bf64c
 )
 
 require (
@@ -26,8 +27,11 @@ require (
 	github.com/charmbracelet/x/termios v0.1.0 // indirect
 	github.com/charmbracelet/x/windows v0.2.0 // indirect
 	github.com/creack/pty v1.1.21 // indirect
+	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
