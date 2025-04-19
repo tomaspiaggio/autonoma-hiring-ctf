@@ -10,6 +10,8 @@ require (
 	github.com/charmbracelet/ssh v0.0.0-20250213143314-8712ec3ff3ef
 	github.com/charmbracelet/wish v1.4.7
 	github.com/dop251/goja v0.0.0-20250309171923-bcd7cc6bf64c
+	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/google/uuid v1.6.0
 )
 
 require (

@@ -284,7 +284,7 @@ func (m model) View() string {
 		m.stepManager.SetCurrentStep(m.activeTab)
 
 		isFirst := i == 0
-		isLast := i == len(tabNames) - 1
+		isLast := i == len(tabNames)-1
 		isActive := i == m.activeTab
 
 		if isActive {
