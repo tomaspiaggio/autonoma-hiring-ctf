@@ -35,10 +35,6 @@ var (
 			Background(lipgloss.Color("#7D56F4")).
 			Padding(0, 1)
 
-	stepTitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFA500")).
-			Bold(true)
-
 	promptStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#04B575")).
 			Bold(true)
@@ -282,13 +278,14 @@ func (m model) View() string {
 
 	for i, t := range tabNames {
 		var style lipgloss.Style
-		isFirst, isLast, isActive := i == 0, i == len(tabNames)-1, i == m.activeTab
 
 		// Only allow selecting unlocked tabs
-		if m.activeTab > completedSteps {
-			m.activeTab = completedSteps
-			m.stepManager.SetCurrentStep(m.activeTab)
-		}
+		m.activeTab = completedSteps
+		m.stepManager.SetCurrentStep(m.activeTab)
+
+		isFirst := i == 0
+		isLast := i == len(tabNames) - 1
+		isActive := i == m.activeTab
 
 		if isActive {
 			style = activeTabStyle

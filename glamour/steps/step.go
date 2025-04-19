@@ -1,8 +1,6 @@
 package steps
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -75,14 +73,6 @@ func (sm *StepManager) CurrentStepView() string {
 	return "Challenge completed!"
 }
 
-// CurrentStepTitle returns the title of the current step
-func (sm *StepManager) CurrentStepTitle() string {
-	if sm.CurrentStep < len(sm.Steps) {
-		return fmt.Sprintf("Step %d: %s", sm.CurrentStep+1, sm.Steps[sm.CurrentStep].Title())
-	}
-	return "Challenge completed!"
-}
-
 // UpdateCurrentStep updates the current step with the given message
 func (sm *StepManager) UpdateCurrentStep(msg tea.Msg) tea.Cmd {
 	if sm.CurrentStep < len(sm.Steps) {
@@ -119,9 +109,9 @@ func (sm *StepManager) Init() tea.Cmd {
 
 func GenerateSteps() []Step {
 	return []Step{
-		// NewStep1(),
-		// NewStep2(),
-		// NewStep3(),
+		NewStep1(),
+		NewStep2(),
+		NewStep3(),
 		NewStep4(),
 		NewStep5(),
 	}
