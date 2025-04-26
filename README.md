@@ -5,7 +5,7 @@
 - [x] tabs not working
 - [x] at the end:
     - [x] jwt
-- [ ] step 0 talking about what they're going to do.
+- [ ] if someone won, send an email to tom
 - [ ] if the user logs in with the same email countdown of how much time they got left to wait
 - [ ] if success, tell them they succeded
 - [ ] see if it ends if it kicks you out

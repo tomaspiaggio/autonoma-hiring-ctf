@@ -228,6 +228,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.stepManager.StepFailed {
+		go func() {
+			// the json has the last step that was completed, the time it took, and the failure message
+			m.db.CreateAttempt(m.stepManager.email, m.stepManager.StepFailed, map[string]interface{}{
+				"step": m.stepManager.CurrentStep,
+				"time": time.Since(m.startTime),
+				"msg":  m.stepManager.StepFailedMsg,
+			})
+		}()
 		return m, tea.Quit
 	}
 
@@ -386,7 +394,7 @@ func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 		pty.Window.Height = 24
 	}
 
-	m := initialModel()
+	m := initialModel(db)
 
 	return m, []tea.ProgramOption{
 		tea.WithAltScreen(),
