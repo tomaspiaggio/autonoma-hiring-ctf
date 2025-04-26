@@ -21,7 +21,7 @@ type Step5 struct {
 }
 
 // NewStep5 creates a new Step5 instance
-func NewStep5() *Step5 {
+func NewStep5(sm *StepManager) *Step5 {
 	// Initial JavaScript function template
 	jsTemplate := `function hasPath(x, y, grid) {
     // Your implementation here
@@ -53,7 +53,7 @@ func NewStep5() *Step5 {
 	}
 
 	return &Step5{
-		BaseStep: NewBaseStep("Grid Navigation Challenge"),
+		BaseStep: NewBaseStep("Grid Navigation Challenge", sm),
 		textarea: ta,
 		question: "Navigate from (0,0) to (5,5) on a 6x6 grid.\nYou can only move right (R) or down (D).\nAvoid obstacles (marked as 1).\nImplement the hasPath function.",
 		errorMsg: "",

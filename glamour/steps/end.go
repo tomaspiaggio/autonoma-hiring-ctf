@@ -35,7 +35,7 @@ type JWTCustomClaims struct {
 var jwtSecretKey = []byte("a_very_secret_key_for_autonoma_ctf_shhh")
 
 // NewEndStep creates a new EndStep instance.
-func NewEndStep() *EndStep {
+func NewEndStep(sm *StepManager) *EndStep {
 	generatedKey := uuid.NewString() // Generate a unique key
 	calLink := "https://cal.com/tom-piaggio-autonoma/15min"
 	instructions := "In the meeting description, please write the key provided below and briefly share your thoughts on the CTF."
@@ -67,8 +67,6 @@ func NewEndStep() *EndStep {
 		signedToken = fmt.Sprintf("Error generating token: %v", err)
 	}
 
-	fmt.Println("signedToken", signedToken)
-
 	congratsStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#4CAF50")). // Green
@@ -80,12 +78,11 @@ func NewEndStep() *EndStep {
 
 	tokenStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FFD700")). // Gold
-		Padding(1, 1).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#FFD700"))
+		Padding(1, 0).                         // Reduced padding
+		Bold(true)                             // Make it stand out without borders
 
 	return &EndStep{
-		BaseStep:      NewBaseStep("Challenge Completed!"),
+		BaseStep:      NewBaseStep("Challenge Completed!", sm),
 		jwtToken:      signedToken,
 		generatedKey:  generatedKey,
 		calLink:       calLink,
@@ -98,25 +95,29 @@ func NewEndStep() *EndStep {
 
 // Init initializes the step.
 func (s *EndStep) Init() tea.Cmd {
-	// Mark this step as completed immediately since it's the end screen.
 	s.MarkCompleted()
 	return nil
 }
 
-// Update handles messages for the end step. Typically, no updates are needed here.
+// Update handles messages for the end step.
 func (s *EndStep) Update(msg tea.Msg) (Step, tea.Cmd) {
-	// The end step doesn't need to react to user input in this context.
-	// We could add a 'q' or 'ctrl+c' handler if needed, but the main loop handles that.
+	switch msg.(type) {
+	case tea.MouseMsg:
+		// Handle mouse events if needed in the future
+		return s, nil
+	}
 	return s, nil
 }
 
 // View renders the final success message, JWT token, and instructions.
 func (s *EndStep) View() string {
 	return fmt.Sprintf(
-		"%s\n\n%s\n\n%s",
+		"%s\n\n%s\n\n%s\n\n%s\n\n%s",
 		s.congratsStyle.Render("🎉 Congratulations! You've completed all challenges and are on the shortlist! 🎉"),
 		s.infoStyle.Render("You've demonstrated excellent problem-solving skills."),
-		s.tokenStyle.Render(fmt.Sprintf("Your Key: %s", s.jwtToken)), // Display the key clearly
+		s.infoStyle.Render("Your JWT token (select and copy below):"),
+		s.tokenStyle.Render(s.jwtToken),
+		s.infoStyle.Render("(Use mouse or terminal selection to copy the token)"),
 	)
 }
 

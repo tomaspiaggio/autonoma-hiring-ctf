@@ -37,9 +37,9 @@ type Step3 struct {
 }
 
 // NewStep3 creates a new Step3 instance
-func NewStep3() *Step3 {
+func NewStep3(sm *StepManager) *Step3 {
 	return &Step3{
-		BaseStep: NewBaseStep("Math Challenge"),
+		BaseStep: NewBaseStep("Math Challenge", sm),
 		questions: []string{
 			"What is 7 + 12?",
 			"What is 15 + 4?",
@@ -89,7 +89,11 @@ func (s *Step3) Update(msg tea.Msg) (Step, tea.Cmd) {
 			if correct >= 7 {
 				s.MarkCompleted()
 			} else {
-				s.errorMsg = fmt.Sprintf("Time's up! You got %d out of 10 correct. Need at least 7 to pass.", correct)
+				s.errorMsg = fmt.Sprintf("Time's up! You got %d out of 10 correct. Need at least 7 to pass.")
+				go func() {
+					time.Sleep(1 * time.Second)
+					s.sm.SetFailedStep(s.errorMsg)
+				}()
 			}
 			return s, nil
 		}

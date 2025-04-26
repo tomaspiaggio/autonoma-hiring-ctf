@@ -31,7 +31,7 @@ type Step1 struct {
 }
 
 // NewStep1 creates a new Step1 instance
-func NewStep1() *Step1 {
+func NewStep1(sm *StepManager) *Step1 {
 	correctStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#ffffff")).
@@ -110,7 +110,7 @@ func NewStep1() *Step1 {
 	selectedWord := argentineWords[randInt.Intn(len(argentineWords))]
 
 	return &Step1{
-		BaseStep:       NewBaseStep("Wordle Challenge"),
+		BaseStep:       NewBaseStep("Wordle Challenge", sm),
 		answer:         selectedWord,
 		guesses:        make([]string, 6),
 		currentGuess:   "",
@@ -152,6 +152,10 @@ func (s *Step1) submitGuess() {
 	if s.currentRow >= s.maxGuesses {
 		s.errorMsg = fmt.Sprintf("You've run out of guesses! The word was: %s", s.answer)
 		s.completed = true
+		go func() {
+			time.Sleep(1 * time.Second)
+			s.sm.SetFailedStep(s.errorMsg)
+		}()
 	}
 }
 

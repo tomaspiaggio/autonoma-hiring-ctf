@@ -26,14 +26,14 @@ type constraint struct {
 }
 
 // NewStep2 creates a new Step2 instance
-func NewStep2() *Step2 {
+func NewStep2(sm *StepManager) *Step2 {
 	input := textinput.New()
 	input.Placeholder = "Enter your password"
 	input.Focus()
 	input.Width = 60
 
 	return &Step2{
-		BaseStep:    NewBaseStep("Password Game"),
+		BaseStep:    NewBaseStep("Password Game", sm),
 		input:       input,
 		constraints: buildConstraints(),
 		revealed:    1,
@@ -137,7 +137,7 @@ func buildConstraints() []constraint {
 			},
 		},
 		{
-			description: "Password must contain a programming language",
+			description: "Password must contain a popular programming language",
 			validate: func(s string) (bool, string) {
 				languages := []string{"PYTHON", "JAVA", "JAVASCRIPT", "C", "CPP", "CSHARP", "PHP", "RUBY", "GO", "SWIFT", "KOTLIN", "RUST", "SCALA", "PERL", "TYPESCRIPT"}
 				for _, lang := range languages {
@@ -155,7 +155,7 @@ func buildConstraints() []constraint {
 				if strings.Contains(strings.ToLower(s), "twenty") {
 					return true, ""
 				}
-				return false, "Missing the area of the triangle (twenty)"
+				return false, "Missing the area of the triangle"
 			},
 		},
 	}

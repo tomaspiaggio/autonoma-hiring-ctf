@@ -1,6 +1,8 @@
 package steps
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -26,13 +28,15 @@ type Step interface {
 type BaseStep struct {
 	title     string
 	completed bool
+	sm        *StepManager
 }
 
 // NewBaseStep creates a new base step with the given title
-func NewBaseStep(title string) BaseStep {
+func NewBaseStep(title string, sm *StepManager) BaseStep {
 	return BaseStep{
 		title:     title,
 		completed: false,
+		sm:        sm,
 	}
 }
 
@@ -55,13 +59,17 @@ func (b *BaseStep) MarkCompleted() {
 type StepManager struct {
 	Steps       []Step
 	CurrentStep int
+	startTime   time.Time
+	StepFailed  bool
 }
 
 // NewStepManager creates a new step manager with the given steps
-func NewStepManager(steps []Step) *StepManager {
+func NewStepManager(steps []Step, startTime time.Time) *StepManager {
 	return &StepManager{
 		Steps:       steps,
 		CurrentStep: 0,
+		startTime:   startTime,
+		StepFailed:  false,
 	}
 }
 
@@ -95,6 +103,16 @@ func (sm *StepManager) SetCurrentStep(step int) {
 	sm.CurrentStep = step
 }
 
+func (sm *StepManager) SetFailedStep(failureMsg string) {
+	stepReached := sm.CurrentStep
+	timeTaken := time.Since(sm.startTime)
+	sm.Steps = []Step{
+		NewFailedStep(stepReached, timeTaken, failureMsg, sm),
+	}
+	sm.CurrentStep = 0
+	sm.StepFailed = true
+}
+
 func (sm *StepManager) GetCompletedSteps() int {
 	return sm.CurrentStep
 }
@@ -107,13 +125,13 @@ func (sm *StepManager) Init() tea.Cmd {
 	return nil
 }
 
-func GenerateSteps() []Step {
+func GenerateSteps(sm *StepManager) []Step {
 	return []Step{
-		// NewStep1(),
-		// NewStep2(),
-		// NewStep3(),
-		// NewStep4(),
-		// NewStep5(),
-		NewEndStep(),
+		NewStep1(sm),
+		NewStep2(sm),
+		NewStep3(sm),
+		NewStep4(sm),
+		NewStep5(sm),
+		NewEndStep(sm),
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/wish"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/charmbracelet/wish/logging"
+	"github.com/joho/godotenv"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/common"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/glamour/steps"
 )
@@ -51,7 +52,6 @@ var (
 
 	// Tab styles
 	highlightColor = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	docStyle       = lipgloss.NewStyle().Padding(1, 2, 1, 2)
 	windowStyle    = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
 )
 
@@ -104,14 +104,15 @@ func initialModel() model {
 	allSteps := []steps.Step{}
 
 	// Create step manager
-	sm := steps.NewStepManager(allSteps)
+	startTime := time.Now()
+	sm := steps.NewStepManager(allSteps, startTime)
 
 	return model{
 		keys:         keys,
 		help:         help.New(),
 		width:        80,
 		height:       24,
-		startTime:    time.Now(),
+		startTime:    startTime,
 		emailInput:   ti,
 		emailEntered: false,
 		stepManager:  sm,
@@ -170,7 +171,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.emailEntered {
 			if msg.String() == "enter" && m.emailInput.Value() != "" {
 				m.emailEntered = true
-				m.stepManager.Steps = steps.GenerateSteps()
+				m.stepManager.Steps = steps.GenerateSteps(m.stepManager)
 				return m, nil
 			}
 
@@ -191,6 +192,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 	}
 
+	if m.stepManager.StepFailed {
+		return m, tea.Quit
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -204,6 +209,7 @@ func (m model) View() string {
 	var timeLeftStr string
 	if timeLeft <= 0 {
 		timeLeftStr = "Time's up!"
+		m.stepManager.SetFailedStep("Time's up. You run out of time. You had 25 minutes to complete the challenge.")
 	} else {
 		minutes := int(timeLeft.Minutes())
 		seconds := int(timeLeft.Seconds()) % 60
@@ -213,13 +219,21 @@ func (m model) View() string {
 	// Before user enters email, show email input prompt
 	if !m.emailEntered {
 		title := titleStyle.Render("Welcome to Autonoma CTF Challenge")
-		tweet := titleStyle.Render("Tweet 'ssh ctf.autonoma.app' to get 10 extra minutes")
 		timeDisplay := timeStyle.Render(timeLeftStr)
 
-		s := fmt.Sprintf("\n\n  %s\t%s\n\n  %s\n\n  %s\n\n  %s\n\n",
+		descriptionList := []string{
+			"The following is a CTF made by @tomaspiaggio, CTO at Autonoma.",
+			"Anyone can participate, but if you get to the end, you are eligible for a job at Autonoma.",
+			"The CTF is a series of challenges that you can solve by coding, reading, and thinking.",
+			"You can tweet 'ssh ctf.autonoma.app' if you liked this.",
+		}
+
+		description := emailStyle.Render(strings.Join(descriptionList, "\n "))
+
+		s := fmt.Sprintf("\n\n  %s\t%s\n\n %s\n\n %s\n\n  %s\n\n",
 			title,
 			timeDisplay,
-			tweet,
+			description,
 			promptStyle.Render("If you get in, you get hired"),
 			m.emailInput.View(),
 		)
@@ -237,10 +251,6 @@ func (m model) View() string {
 
 		rulesText := helpStyle.Render("  " + strings.Join(rules, "\n  "))
 		s += "\n" + rulesText + "\n"
-
-		// Add help at the bottom
-		help := helpStyle.Render("  (Enter to submit, Esc to quit)")
-		s += "\n" + help
 
 		return s
 	}
@@ -339,16 +349,23 @@ func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 
 	return m, []tea.ProgramOption{
 		tea.WithAltScreen(),
+		tea.WithMouseAllMotion(),
 		tea.WithMouseCellMotion(),
 	}
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+
 	// Local mode (command line)
 	if len(os.Args) > 1 && os.Args[1] == "local" {
 		p := tea.NewProgram(
 			initialModel(),
 			tea.WithAltScreen(),
+			tea.WithMouseAllMotion(),
 			tea.WithMouseCellMotion(),
 		)
 

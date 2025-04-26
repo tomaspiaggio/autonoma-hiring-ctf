@@ -12,6 +12,8 @@ require (
 	github.com/dop251/goja v0.0.0-20250309171923-bcd7cc6bf64c
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
+	github.com/joho/godotenv v1.5.1
+	github.com/resend/resend-go/v2 v2.17.0
 )
 
 require (

@@ -27,7 +27,7 @@ type Step4 struct {
 }
 
 // NewStep4 creates a new Step4 instance
-func NewStep4() *Step4 {
+func NewStep4(sm *StepManager) *Step4 {
 	// Broken JavaScript code with a promise-related bug
 	brokenCode := `async function fetchUserData(users) {
   const userData = [];
@@ -56,9 +56,9 @@ function fetchUser(user) {
 	ta.SetHeight(20)
 
 	return &Step4{
-		BaseStep: NewBaseStep("Async JavaScript Debugging"),
+		BaseStep: NewBaseStep("Async JavaScript Debugging", sm),
 		textarea: ta,
-		question: "Fix the JavaScript function that fetches user data.\nThe current implementation has a bug with promises.",
+		question: "Fix the JavaScript function that fetches user data.\nThe current implementation has a bug where the returned list is always empty.",
 		errorMsg: "",
 		code:     brokenCode,
 	}
