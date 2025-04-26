@@ -62,9 +62,10 @@ type StepManager struct {
 	CurrentStep int
 	startTime   time.Time
 	StepFailed  bool
-	email       string
+	Email       string
 	EmailSent   bool
 	db          *database.DB
+	FailureMsg  string
 }
 
 // NewStepManager creates a new step manager with the given steps
@@ -88,7 +89,7 @@ func (sm *StepManager) CurrentStepView() string {
 }
 
 func (sm *StepManager) SetEmail(email string) {
-	sm.email = email
+	sm.Email = email
 }
 
 // UpdateCurrentStep updates the current step with the given message
@@ -121,6 +122,7 @@ func (sm *StepManager) SetFailedStep(failureMsg string) {
 	}
 	sm.CurrentStep = 0
 	sm.StepFailed = true
+	sm.FailureMsg = failureMsg
 }
 
 func (sm *StepManager) GetCompletedSteps() int {

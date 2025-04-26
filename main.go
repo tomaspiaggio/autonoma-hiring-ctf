@@ -4,10 +4,12 @@ package main
 import (
 	"fmt"
 	"log"
+
 	// "log"
 	"net/mail"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -190,6 +192,87 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.emailEntered {
 			if msg.String() == "enter" {
 				email := m.emailInput.Value()
+
+				hasWon := false
+				failedToday := false
+				var dbErr error
+				var wg sync.WaitGroup
+				var mu sync.Mutex // Mutex to protect access to shared error variable
+
+				wg.Add(2)
+
+				// Check for failed attempts concurrently
+				go func() {
+					defer wg.Done()
+					res, err := m.db.DoesUserHaveFailedAttemptsToday(email)
+					if err != nil {
+						mu.Lock()
+						if dbErr == nil { // Store the first error encountered
+							dbErr = fmt.Errorf("checking failed attempts: %w", err)
+						}
+						mu.Unlock()
+						return
+					}
+					failedToday = res
+				}()
+
+				// Check for win status concurrently
+				go func() {
+					defer wg.Done()
+					res, err := m.db.HasUserWon(email)
+					if err != nil {
+						mu.Lock()
+						if dbErr == nil { // Store the first error encountered
+							dbErr = fmt.Errorf("checking win status: %w", err)
+						}
+						mu.Unlock()
+						return
+					}
+					hasWon = res
+				}()
+
+				// Wait for both checks to complete
+				wg.Wait()
+
+				// Handle database errors first
+				if dbErr != nil {
+					log.Printf("Database error for email %s: %v", email, dbErr) // Log the specific error
+					// Use a generic failure message for the user
+					m.stepManager.SetFailedStep("An error occurred while checking your status. Please try again later.")
+					m.emailEntered = true // Mark email as entered to bypass input screen
+					// Prepare a single failure step
+					failStep := steps.NewFailedStep(0, 0, m.stepManager.FailureMsg, m.stepManager)
+					m.stepManager.Steps = []steps.Step{failStep}
+					cmds = append(cmds, m.stepManager.Init()) // Initialize the failure step
+					return m, tea.Batch(cmds...)
+				}
+
+				// Handle specific cases: HasWon or HasFailedToday
+				if hasWon {
+					m.emailEntered = true
+					m.emailError = ""
+					m.emailInput.Prompt = emailStyle.Render("Email: ")
+					m.stepManager.SetEmail(email) // Set email for potential logging later if needed
+					// Create and set the "HasWon" step
+					winStep := steps.NewHasWonStep(m.stepManager)
+					m.stepManager.Steps = []steps.Step{winStep}
+					cmds = append(cmds, m.stepManager.Init())
+					return m, tea.Batch(cmds...)
+				}
+
+				if failedToday {
+					m.emailEntered = true
+					m.emailError = ""
+					m.emailInput.Prompt = emailStyle.Render("Email: ")
+					m.stepManager.SetEmail(email) // Set email for potential logging later if needed
+					// Create and set the "HasFailed" step
+					failTodayStep := steps.NewHasFailedStep(m.stepManager)
+					m.stepManager.Steps = []steps.Step{failTodayStep}
+					cmds = append(cmds, m.stepManager.Init())
+					return m, tea.Batch(cmds...)
+				}
+
+				// --- Original flow if user is valid and hasn't won/failed today ---
 				m.stepManager.SetEmail(email)
 				if email != "" && isValidEmail(email) {
 					m.emailEntered = true
@@ -228,14 +311,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.stepManager.StepFailed {
-		go func() {
-			// the json has the last step that was completed, the time it took, and the failure message
-			m.db.CreateAttempt(m.stepManager.email, m.stepManager.StepFailed, map[string]interface{}{
-				"step": m.stepManager.CurrentStep,
-				"time": time.Since(m.startTime),
-				"msg":  m.stepManager.StepFailedMsg,
-			})
-		}()
+		// Only record attempt if it wasn't a pre-check failure (HasWon/HasFailedToday)
+		// and the failure wasn't due to a DB error during the initial check.
+		if len(m.stepManager.Steps) > 1 || (len(m.stepManager.Steps) == 1 && m.stepManager.FailureMsg != "An error occurred while checking your status. Please try again later.") {
+			go func() {
+				// the json has the last step that was completed, the time it took, and the failure message
+				m.db.CreateAttempt(m.stepManager.Email, m.stepManager.StepFailed, map[string]interface{}{
+					"step": m.stepManager.CurrentStep,
+					"time": time.Since(m.startTime),
+					"msg":  m.stepManager.FailureMsg,
+				})
+			}()
+		}
 		return m, tea.Quit
 	}
 
@@ -386,7 +473,7 @@ func (m model) View() string {
 }
 
 // teaHandler creates a new bubbletea program for each ssh session
-func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption) {
 	pty, _, active := s.Pty()
 	if !active {
 		fmt.Println("No active terminal, size will be 80x24")
@@ -453,7 +540,9 @@ func main() {
 		wish.WithAddress(fmt.Sprintf("%s:%d", host, port)),
 		wish.WithHostKeyPath(keyPath),
 		wish.WithMiddleware(
-			bm.Middleware(teaHandler),
+			bm.Middleware(func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
+				return teaHandler(s, db)
+			}),
 			logging.Middleware(),
 		),
 	)

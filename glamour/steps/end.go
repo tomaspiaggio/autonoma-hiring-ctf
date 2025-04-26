@@ -110,7 +110,7 @@ func (s *EndStep) Update(msg tea.Msg) (Step, tea.Cmd) {
 
 	if !s.sm.EmailSent {
 		s.sm.EmailSent = true
-		go email.SendEndEmail(s.sm.email, "Tom Piaggio", "tom@autonoma.app", s.jwtToken)
+		go email.SendEndEmail(s.sm.Email, "Tom Piaggio", "tom@autonoma.app", s.jwtToken)
 		go func() {
 			time.Sleep(5 * time.Second)
 			s.sm.StepFailed = true

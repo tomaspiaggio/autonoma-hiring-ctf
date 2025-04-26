@@ -145,9 +145,22 @@ func (db *DB) CreateUser(email string) (int, error) {
 	return id, err
 }
 
-func (db *DB) CreateAttempt(userId int, failed bool, details map[string]interface{}) (int, error) {
+func (db *DB) getUserIdByEmail(email string) (int, error) {
+	var id int
+	query := "SELECT id FROM users WHERE email = $1"
+	err := db.pool.QueryRowContext(db.ctx, query, strings.ToLower(email)).Scan(&id)
+	return id, err
+}
+
+func (db *DB) CreateAttempt(email string, failed bool, details map[string]interface{}) (int, error) {
+	userId, err := db.getUserIdByEmail(email)
+	if err != nil {
+		return -1, err
+	}
+	
 	var id int
 	query := "INSERT INTO attempts (user_id, failed, details) VALUES ($1, $2, $3) RETURNING id"
-	err := db.pool.QueryRowContext(db.ctx, query, userId, failed, details).Scan(&id)
+	err = db.pool.QueryRowContext(db.ctx, query, userId, failed, details).Scan(&id)
+
 	return id, err
 }
