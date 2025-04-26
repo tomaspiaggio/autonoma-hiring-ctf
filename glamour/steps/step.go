@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/tomaspiaggio/autonoma-hiring-ctf/database"
 )
 
 // Step represents a challenge step in the CTF
@@ -63,16 +64,18 @@ type StepManager struct {
 	StepFailed  bool
 	email       string
 	EmailSent   bool
+	db          *database.DB
 }
 
 // NewStepManager creates a new step manager with the given steps
-func NewStepManager(steps []Step, startTime time.Time) *StepManager {
+func NewStepManager(steps []Step, startTime time.Time, db *database.DB) *StepManager {
 	return &StepManager{
 		Steps:       steps,
 		CurrentStep: 0,
 		startTime:   startTime,
 		StepFailed:  false,
 		EmailSent:   false,
+		db:          db,
 	}
 }
 

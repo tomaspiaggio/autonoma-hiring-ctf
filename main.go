@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	// "log"
 	"net/mail"
 	"os"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/charmbracelet/wish/logging"
 	"github.com/joho/godotenv"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/common"
+	"github.com/tomaspiaggio/autonoma-hiring-ctf/database"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/glamour/steps"
 )
 
@@ -95,9 +97,10 @@ type model struct {
 	stepManager  *steps.StepManager
 	activeTab    int
 	ready        bool
+	db           *database.DB
 }
 
-func initialModel() model {
+func initialModel(db *database.DB) model {
 	// Initialize email input
 	ti := textinput.New()
 	ti.Placeholder = "you@example.com"
@@ -110,7 +113,7 @@ func initialModel() model {
 
 	// Create step manager
 	startTime := time.Now()
-	sm := steps.NewStepManager(allSteps, startTime)
+	sm := steps.NewStepManager(allSteps, startTime, db)
 
 	return model{
 		keys:         keys,
@@ -124,6 +127,7 @@ func initialModel() model {
 		stepManager:  sm,
 		activeTab:    0,
 		ready:        false,
+		db:           db,
 	}
 }
 
@@ -397,10 +401,16 @@ func main() {
 		panic(err)
 	}
 
+	db, err := database.New(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
 	// Local mode (command line)
 	if len(os.Args) > 1 && os.Args[1] == "local" {
 		p := tea.NewProgram(
-			initialModel(),
+			initialModel(db),
 			tea.WithAltScreen(),
 			tea.WithMouseAllMotion(),
 			tea.WithMouseCellMotion(),
