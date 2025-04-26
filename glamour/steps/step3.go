@@ -89,11 +89,7 @@ func (s *Step3) Update(msg tea.Msg) (Step, tea.Cmd) {
 			if correct >= 7 {
 				s.MarkCompleted()
 			} else {
-				s.errorMsg = fmt.Sprintf("Time's up! You got %d out of 10 correct. Need at least 7 to pass.")
-				go func() {
-					time.Sleep(1 * time.Second)
-					s.sm.SetFailedStep(s.errorMsg)
-				}()
+				s.fail("Time's up! You got %d out of 10 correct. Need at least 7 to pass.")
 			}
 			return s, nil
 		}
@@ -136,13 +132,21 @@ func (s *Step3) Update(msg tea.Msg) (Step, tea.Cmd) {
 				if correct >= 7 {
 					s.MarkCompleted()
 				} else {
-					s.errorMsg = fmt.Sprintf("You got %d out of 10 correct. Need at least 7 to pass.", correct)
+					s.fail(fmt.Sprintf("You got %d out of 10 correct. Need at least 7 to pass.", correct))
 				}
 			}
 		}
 	}
 
 	return s, nil
+}
+
+func (s *Step3) fail(errorMsg string) {
+	s.errorMsg = errorMsg
+	go func() {
+		time.Sleep(1 * time.Second)
+		s.sm.SetFailedStep(errorMsg)
+	}()
 }
 
 // generateChoices creates 4 possible answers including the correct one

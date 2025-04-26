@@ -61,6 +61,8 @@ type StepManager struct {
 	CurrentStep int
 	startTime   time.Time
 	StepFailed  bool
+	email       string
+	EmailSent   bool
 }
 
 // NewStepManager creates a new step manager with the given steps
@@ -70,6 +72,7 @@ func NewStepManager(steps []Step, startTime time.Time) *StepManager {
 		CurrentStep: 0,
 		startTime:   startTime,
 		StepFailed:  false,
+		EmailSent:   false,
 	}
 }
 
@@ -79,6 +82,10 @@ func (sm *StepManager) CurrentStepView() string {
 		return sm.Steps[sm.CurrentStep].View()
 	}
 	return "Challenge completed!"
+}
+
+func (sm *StepManager) SetEmail(email string) {
+	sm.email = email
 }
 
 // UpdateCurrentStep updates the current step with the given message

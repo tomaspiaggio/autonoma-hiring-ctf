@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
@@ -50,6 +51,9 @@ var (
 	emailStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#04B575"))
 
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF5F87"))
+
 	// Tab styles
 	highlightColor = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
 	windowStyle    = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
@@ -87,6 +91,7 @@ type model struct {
 	startTime    time.Time
 	emailInput   textinput.Model
 	emailEntered bool
+	emailError   string
 	stepManager  *steps.StepManager
 	activeTab    int
 	ready        bool
@@ -98,7 +103,7 @@ func initialModel() model {
 	ti.Placeholder = "you@example.com"
 	ti.Focus()
 	ti.Width = 40
-	ti.Prompt = "Email: "
+	ti.Prompt = promptStyle.Render("Email: ")
 
 	// Create all steps
 	allSteps := []steps.Step{}
@@ -115,6 +120,7 @@ func initialModel() model {
 		startTime:    startTime,
 		emailInput:   ti,
 		emailEntered: false,
+		emailError:   "",
 		stepManager:  sm,
 		activeTab:    0,
 		ready:        false,
@@ -150,6 +156,12 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+// isValidEmail checks if the email address has a valid format.
+func isValidEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		cmd  tea.Cmd
@@ -159,6 +171,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case common.TickMsg:
 		m.stepManager.UpdateCurrentStep(msg)
+		if m.emailEntered {
+			m.stepManager.UpdateCurrentStep(msg)
+		}
 		return m, tickEvery()
 
 	case tea.KeyMsg:
@@ -169,10 +184,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// If email not entered yet, handle email input
 		if !m.emailEntered {
-			if msg.String() == "enter" && m.emailInput.Value() != "" {
-				m.emailEntered = true
-				m.stepManager.Steps = steps.GenerateSteps(m.stepManager)
-				return m, nil
+			if msg.String() == "enter" {
+				email := m.emailInput.Value()
+				m.stepManager.SetEmail(email)
+				if email != "" && isValidEmail(email) {
+					m.emailEntered = true
+					m.emailError = ""
+					m.emailInput.Prompt = emailStyle.Render("Email: ")
+					m.stepManager.Steps = steps.GenerateSteps(m.stepManager)
+					cmds = append(cmds, m.stepManager.Init())
+					return m, tea.Batch(cmds...)
+				} else {
+					m.emailError = "Invalid email format. Please try again."
+					m.emailInput.Prompt = errorStyle.Render("Email: ")
+					return m, nil
+				}
+			}
+
+			if m.emailError != "" && msg.Type != tea.KeyEnter {
+				m.emailError = ""
+				m.emailInput.Prompt = promptStyle.Render("Email: ")
 			}
 
 			m.emailInput, cmd = m.emailInput.Update(msg)
@@ -230,12 +261,18 @@ func (m model) View() string {
 
 		description := emailStyle.Render(strings.Join(descriptionList, "\n "))
 
-		s := fmt.Sprintf("\n\n  %s\t%s\n\n %s\n\n %s\n\n  %s\n\n",
+		emailView := m.emailInput.View()
+		if m.emailError != "" {
+			emailView += "\n  " + errorStyle.Render(m.emailError)
+		}
+
+		s := fmt.Sprintf("\n\n  %s\t%s\n\n %s\n\n %s\n %s\n\n  %s\n\n",
 			title,
 			timeDisplay,
 			description,
-			promptStyle.Render("If you get in, you get hired"),
-			m.emailInput.View(),
+			promptStyle.Render("If you get in, you get hired."),
+			helpStyle.Render("Note that we'll use that email to contact you."),
+			emailView,
 		)
 
 		// Add challenge rules

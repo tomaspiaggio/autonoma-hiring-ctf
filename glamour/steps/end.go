@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/tomaspiaggio/autonoma-hiring-ctf/email"
 )
 
 // EndStep is the final step shown upon successful completion.
@@ -106,18 +107,27 @@ func (s *EndStep) Update(msg tea.Msg) (Step, tea.Cmd) {
 		// Handle mouse events if needed in the future
 		return s, nil
 	}
+
+	if !s.sm.EmailSent {
+		s.sm.EmailSent = true
+		go email.SendEndEmail(s.sm.email, "Tom Piaggio", "tom@autonoma.app", s.jwtToken)
+		go func() {
+			time.Sleep(5 * time.Second)
+			s.sm.StepFailed = true
+		}()
+	}
+
 	return s, nil
 }
 
 // View renders the final success message, JWT token, and instructions.
 func (s *EndStep) View() string {
 	return fmt.Sprintf(
-		"%s\n\n%s\n\n%s\n\n%s\n\n%s",
-		s.congratsStyle.Render("🎉 Congratulations! You've completed all challenges and are on the shortlist! 🎉"),
-		s.infoStyle.Render("You've demonstrated excellent problem-solving skills."),
-		s.infoStyle.Render("Your JWT token (select and copy below):"),
-		s.tokenStyle.Render(s.jwtToken),
-		s.infoStyle.Render("(Use mouse or terminal selection to copy the token)"),
+		"%s\n\n%s\n\n%s\n\n%s",
+		s.congratsStyle.Render("🎉 Congratulations! You've completed almost all of the challenges! 🎉"),
+		s.infoStyle.Render("Check your inbox for the last challenge."),
+		s.infoStyle.Render("If you overcome this challenge, you'll be able to add a calendar invite to meet with Tom"),
+		s.infoStyle.Render("Click any key to exit. This message won't be shown again."),
 	)
 }
 
