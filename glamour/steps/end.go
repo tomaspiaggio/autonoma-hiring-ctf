@@ -112,6 +112,11 @@ func (s *EndStep) Update(msg tea.Msg) (Step, tea.Cmd) {
 		s.sm.EmailSent = true
 		go email.SendEndEmail(s.sm.Email, "Tom Piaggio", "tom@autonoma.app", s.jwtToken)
 		go func() {
+			s.sm.db.CreateAttempt(s.sm.Email, false, map[string]interface{}{
+				"step": s.sm.CurrentStep,
+				"time": time.Since(s.sm.startTime),
+				"msg":  s.sm.FailureMsg,
+			})
 			time.Sleep(5 * time.Second)
 			s.sm.StepFailed = true
 		}()
