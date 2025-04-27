@@ -1,32 +1,3 @@
-# --- Secrets ---
-
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-type: Opaque
-data:
-  # echo -n 'your-postgres-password' | base64
-  POSTGRES_PASSWORD: <base64-encoded-value>
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-type: Opaque
-data:
-  # echo -n 'your-resend-api-key' | base64
-  RESEND_API_KEY: <base64-encoded-value>
-  # echo -n 'postgresql://postgres:<your-postgres-password>@postgres-service:5432/postgres' | base64
-  # Make sure the password here matches the one in postgres-secret and the service name matches the postgres service below.
-  DATABASE_URL: <base64-encoded-value>
-  # echo -n 'your-emailer-host:port' | base64 
-  # Example: echo -n 'emailer-service:8080' | base64
-  EMAILER_HOST: <base64-encoded-value>
----
-
-# --- PostgreSQL ---
-
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -53,6 +24,8 @@ spec:
       labels:
         app: postgres
     spec:
+      securityContext:
+        fsGroup: 999 # Group ID for postgres user in the standard image
       containers:
         - name: postgres
           image: postgres:15 # Use a specific version
@@ -64,11 +37,12 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
-            - name: POSTGRES_DB # Optional: Specify a database name
-              value: postgres
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata # Tells postgres where to store data within the container
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgres-storage
+              subPath: pgdata # Mount a sub-directory of the volume
           resources:
             requests:
               memory: "256Mi"
@@ -94,7 +68,6 @@ spec:
       targetPort: 5432
   type: ClusterIP # Only expose internally
 ---
-
 # --- Emailer Application ---
 
 apiVersion: apps/v1
@@ -132,7 +105,7 @@ spec:
               memory: "64Mi"
               cpu: "100m"
             limits:
-              memory: "128Mi"
+              memory: "256Mi"
               cpu: "200m"
 ---
 apiVersion: v1
@@ -148,7 +121,6 @@ spec:
       targetPort: 8080 # Port the container listens on, adjust if needed
   type: ClusterIP # Internal service, reachable via emailer-service:8080
 ---
-
 # --- SSH Application ---
 
 apiVersion: apps/v1
@@ -167,9 +139,9 @@ spec:
     spec:
       containers:
         - name: ssh-app
-          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.0
+          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.1
           ports:
-            - containerPort: 22 # Default SSH port
+            - containerPort: 2222 # Default SSH port
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -199,5 +171,5 @@ spec:
   ports:
     - protocol: TCP
       port: 22 # Port exposed by the LoadBalancer
-      targetPort: 22 # Port the container listens on
+      targetPort: 2222 # Port the container listens on
   type: LoadBalancer # Exposes the service externally via a cloud provider's load balancer
