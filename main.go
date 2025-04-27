@@ -493,7 +493,7 @@ func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption)
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		panic(err)
+		log.Println("No .env file found, using system environment variables")
 	}
 
 	db, err := database.New(os.Getenv("DATABASE_URL"))

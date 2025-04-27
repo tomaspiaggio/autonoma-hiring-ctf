@@ -11,9 +11,10 @@ import (
 
 func SendEndEmail(to string, name string, email string, token string) (*resend.SendEmailResponse, error) {
 	client := resend.NewClient(os.Getenv("RESEND_API_KEY"))
+    emilerHost := os.Getenv("EMAILER_HOST")
 
     // Make request to verify token
-    resp, err := http.Post("http://localhost:3000", "application/json", bytes.NewBuffer([]byte(`{"token":"`+token+`"}`)))
+    resp, err := http.Post(emilerHost, "application/json", bytes.NewBuffer([]byte(`{"token":"`+token+`"}`)))
     if err != nil {
         return nil, err
     }

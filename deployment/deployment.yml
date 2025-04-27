@@ -1,0 +1,203 @@
+# --- Secrets ---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+data:
+  # echo -n 'your-postgres-password' | base64
+  POSTGRES_PASSWORD: <base64-encoded-value>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+data:
+  # echo -n 'your-resend-api-key' | base64
+  RESEND_API_KEY: <base64-encoded-value>
+  # echo -n 'postgresql://postgres:<your-postgres-password>@postgres-service:5432/postgres' | base64
+  # Make sure the password here matches the one in postgres-secret and the service name matches the postgres service below.
+  DATABASE_URL: <base64-encoded-value>
+  # echo -n 'your-emailer-host:port' | base64 
+  # Example: echo -n 'emailer-service:8080' | base64
+  EMAILER_HOST: <base64-encoded-value>
+---
+
+# --- PostgreSQL ---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # Assumes a single pod DB, adjust if needed
+  resources:
+    requests:
+      storage: 1Gi # Adjust storage size as needed
+  # storageClassName: standard # Uncomment and specify if needed
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15 # Use a specific version
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB # Optional: Specify a database name
+              value: postgres
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-storage
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP # Only expose internally
+---
+
+# --- Emailer Application ---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emailer-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: emailer
+  template:
+    metadata:
+      labels:
+        app: emailer
+    spec:
+      containers:
+        - name: emailer
+          image: autonomactfregistry.azurecr.io/ctf/emailer:1.0.0
+          ports:
+            - containerPort: 8080 # Assuming emailer listens on 8080, adjust if needed
+          env:
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RESEND_API_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emailer-service
+spec:
+  selector:
+    app: emailer
+  ports:
+    - protocol: TCP
+      port: 8080 # Port the service exposes
+      targetPort: 8080 # Port the container listens on, adjust if needed
+  type: ClusterIP # Internal service, reachable via emailer-service:8080
+---
+
+# --- SSH Application ---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-deployment
+spec:
+  replicas: 1 # Adjust replicas as needed
+  selector:
+    matchLabels:
+      app: ssh-app
+  template:
+    metadata:
+      labels:
+        app: ssh-app
+    spec:
+      containers:
+        - name: ssh-app
+          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.0
+          ports:
+            - containerPort: 22 # Default SSH port
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: EMAILER_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: EMAILER_HOST
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssh-service
+spec:
+  selector:
+    app: ssh-app
+  ports:
+    - protocol: TCP
+      port: 22 # Port exposed by the LoadBalancer
+      targetPort: 22 # Port the container listens on
+  type: LoadBalancer # Exposes the service externally via a cloud provider's load balancer
