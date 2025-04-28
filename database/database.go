@@ -153,16 +153,24 @@ func (db *DB) getUserIdByEmail(email string) (int, error) {
 	var id int
 	query := "SELECT id FROM users WHERE email = $1"
 	err := db.pool.QueryRowContext(db.ctx, query, strings.ToLower(email)).Scan(&id)
-	log.Printf("Found user %s with id %d\n", email, id)
 	return id, err
 }
 
 func (db *DB) CreateAttempt(email string, failed bool, details map[string]interface{}) (int, error) {
 	userId, err := db.getUserIdByEmail(email)
 	if err != nil {
-		return -1, err
+		if err == sql.ErrNoRows {
+			log.Printf("User %s not found, creating user\n", email)
+			userId, err = db.CreateUser(email)
+			if err != nil {
+				return -1, err
+			}
+		} else {
+			return -1, err
+		}
+	} else {
+		log.Printf("Found user %s with id %d\n", email, userId)
 	}
-	log.Printf("Found user %s with id %d\n", email, userId)
 	var id int
 	query := "INSERT INTO attempts (user_id, failed, details) VALUES ($1, $2, $3) RETURNING id"
 	err = db.pool.QueryRowContext(db.ctx, query, userId, failed, details).Scan(&id)
