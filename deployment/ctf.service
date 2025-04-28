@@ -1,0 +1,14 @@
+[Unit]
+Description=CTF Main Application Service
+After=network.target
+
+[Service]
+User=tompiaggio
+WorkingDirectory=/home/tompiaggio/main_container
+ExecStart=/home/tompiaggio/main_container/main
+Environment=TERM=xterm-256color
+Environment=COLORTERM=truecolor
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

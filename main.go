@@ -22,6 +22,7 @@ import (
 	"github.com/charmbracelet/wish"
 	bm "github.com/charmbracelet/wish/bubbletea"
 	"github.com/charmbracelet/wish/logging"
+	"github.com/gdamore/tcell/v2/terminfo"
 	"github.com/joho/godotenv"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/common"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/database"
@@ -29,7 +30,7 @@ import (
 )
 
 const (
-	host              = "localhost"
+	host              = "0.0.0.0"
 	port              = 2222
 	challengeDuration = 25 * time.Minute
 )
@@ -479,7 +480,22 @@ func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption)
 		fmt.Println("No active terminal, size will be 80x24")
 		pty.Window.Width = 80
 		pty.Window.Height = 24
+	} else {
+		term := pty.Term
+		// If we don’t have a terminfo entry for the client’s TERM,
+		// fall back to one we know exists.
+		if _, err := terminfo.LookupTerminfo(term); err != nil {
+			term = "xterm-256color"
+		}
+		os.Setenv("TERM", term)
+		os.Setenv("COLORTERM", "truecolor")
 	}
+
+	// 🔑 Tell tcell/lipgloss which TERM we really have
+	if pty.Term != "" {
+		os.Setenv("TERM", pty.Term) // xterm-256color, screen-256color, …
+	}
+	os.Setenv("COLORTERM", "truecolor") // helps termenv pick 24-bit mode
 
 	m := initialModel(db)
 
@@ -501,6 +517,9 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
+
+	fmt.Println("TERM", os.Getenv("TERM"))
+	fmt.Println("COLORTERM", os.Getenv("COLORTERM"))
 
 	// Local mode (command line)
 	if len(os.Args) > 1 && os.Args[1] == "local" {

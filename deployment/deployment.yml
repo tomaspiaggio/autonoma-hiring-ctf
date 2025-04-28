@@ -139,10 +139,14 @@ spec:
     spec:
       containers:
         - name: ssh-app
-          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.2
+          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.10
           ports:
             - containerPort: 2222 # Default SSH port
           env:
+            - name: TERM
+              value: "xterm-256color"
+            - name: COLORTERM
+              value: "truecolor"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -165,11 +169,30 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ssh-service
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: "MC_CTF_CTF_brazilsouth"
+    service.beta.kubernetes.io/azure-allow-shared-security-rule: "true"
 spec:
   selector:
     app: ssh-app
   ports:
     - protocol: TCP
-      port: 22 # Port exposed by the LoadBalancer
+      port: 8080 # Port exposed by the LoadBalancer
       targetPort: 2222 # Port the container listens on
   type: LoadBalancer # Exposes the service externally via a cloud provider's load balancer
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ssh
+spec:
+  podSelector:
+    matchLabels:
+      app: ssh-app
+  ingress:
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 2222
+    - protocol: TCP
+      port: 22

@@ -18,24 +18,19 @@ COPY . .
 # -o /app/main specifies the output path for the compiled binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/main .
 
-# Stage 2: Run the application
-# Use a minimal base image
-FROM alpine:latest
+# --- Stage 2: runtime
+FROM ubuntu:22.04
 
-# Install terminfo database for color support etc.
-RUN apk add --no-cache ncurses-terminfo
+RUN apt-get update && \
+    # `ncurses-base` already installed, but add 256-colour variants
+    apt-get install -y --no-install-recommends ncurses-term && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set the Current Working Directory inside the container
 WORKDIR /app
+COPY --from=builder /app/main /app/main
 
-# Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
+ENV TERM=xterm-256color COLORTERM=truecolor
 
-# Set the TERM environment variable
-ENV TERM=xterm-256color
-
-# Expose the correct port the application listens on
 EXPOSE 2222
 
-# Command to run the executable
-CMD ["./main"]
+CMD ["/app/main"]
