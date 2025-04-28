@@ -24,7 +24,8 @@ FROM ubuntu:22.04
 RUN apt-get update && \
     # `ncurses-base` already installed, but add 256-colour variants
     apt-get install -y --no-install-recommends ncurses-term && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get install -y --no-install-recommends ca-certificates
 
 WORKDIR /app
 COPY --from=builder /app/main /app/main
