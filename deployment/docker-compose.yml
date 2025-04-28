@@ -47,7 +47,7 @@ services:
           memory: 64M
 
   ssh-app:
-    image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.10
+    image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.14
     container_name: ssh-app
     restart: unless-stopped
     depends_on:

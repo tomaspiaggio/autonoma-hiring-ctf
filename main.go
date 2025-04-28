@@ -27,6 +27,7 @@ import (
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/common"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/database"
 	"github.com/tomaspiaggio/autonoma-hiring-ctf/glamour/steps"
+	"github.com/muesli/termenv"
 )
 
 const (
@@ -487,16 +488,19 @@ func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption)
 		if _, err := terminfo.LookupTerminfo(term); err != nil {
 			term = "xterm-256color"
 		}
+		// Force colors even in non-interactive terminals
+		os.Setenv("FORCE_COLOR", "true")
+		os.Setenv("CLICOLOR_FORCE", "1")
+		os.Setenv("NO_COLOR", "0")
 		os.Setenv("TERM", term)
 		os.Setenv("COLORTERM", "truecolor")
 	}
 
-	// 🔑 Tell tcell/lipgloss which TERM we really have
-	if pty.Term != "" {
-		os.Setenv("TERM", pty.Term) // xterm-256color, screen-256color, …
+	if pty.Term != "" && pty.Term != "dumb" {
+		os.Setenv("TERM", pty.Term)
+	} else {
+		os.Setenv("TERM", "xterm-256color")
 	}
-	os.Setenv("COLORTERM", "truecolor") // helps termenv pick 24-bit mode
-
 	m := initialModel(db)
 
 	return m, []tea.ProgramOption{
@@ -508,6 +512,9 @@ func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption)
 
 func main() {
 	err := godotenv.Load()
+	
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	if err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
