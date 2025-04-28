@@ -99,6 +99,7 @@ func (db *DB) DoesUserHaveFailedAttemptsToday(email string) (bool, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Printf("No failed attempts found for %s in the last 24 hours\n", email)
 			// No failed attempts found in the last 24 hours
 			return false, nil
 		}
@@ -108,6 +109,7 @@ func (db *DB) DoesUserHaveFailedAttemptsToday(email string) (bool, error) {
 	}
 
 	// A row was found, meaning a failed attempt exists
+	log.Printf("Found %d failed attempts for %s in the last 24 hours\n", exists, email)
 	return true, nil
 }
 
@@ -135,6 +137,7 @@ func (db *DB) HasUserWon(email string) (bool, error) {
 	}
 
 	// A winning attempt was found
+	log.Printf("Found %d winning attempts for %s\n", exists, email)
 	return true, nil
 }
 
@@ -142,6 +145,7 @@ func (db *DB) CreateUser(email string) (int, error) {
 	var id int
 	query := "INSERT INTO users (email) VALUES ($1) RETURNING id"
 	err := db.pool.QueryRowContext(db.ctx, query, strings.ToLower(email)).Scan(&id)
+	log.Printf("Created user %s with id %d\n", email, id)
 	return id, err
 }
 
@@ -149,6 +153,7 @@ func (db *DB) getUserIdByEmail(email string) (int, error) {
 	var id int
 	query := "SELECT id FROM users WHERE email = $1"
 	err := db.pool.QueryRowContext(db.ctx, query, strings.ToLower(email)).Scan(&id)
+	log.Printf("Found user %s with id %d\n", email, id)
 	return id, err
 }
 
@@ -157,10 +162,10 @@ func (db *DB) CreateAttempt(email string, failed bool, details map[string]interf
 	if err != nil {
 		return -1, err
 	}
-	
+	log.Printf("Found user %s with id %d\n", email, userId)
 	var id int
 	query := "INSERT INTO attempts (user_id, failed, details) VALUES ($1, $2, $3) RETURNING id"
 	err = db.pool.QueryRowContext(db.ctx, query, userId, failed, details).Scan(&id)
-
+	log.Printf("Created attempt for user %s with id %d\n", email, id)
 	return id, err
 }

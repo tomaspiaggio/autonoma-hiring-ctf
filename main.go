@@ -318,11 +318,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.stepManager.Steps) > 1 || (len(m.stepManager.Steps) == 1 && m.stepManager.FailureMsg != "An error occurred while checking your status. Please try again later.") {
 			go func() {
 				// the json has the last step that was completed, the time it took, and the failure message
-				m.db.CreateAttempt(m.stepManager.Email, m.stepManager.StepFailed, map[string]interface{}{
+				_, err := m.db.CreateAttempt(m.stepManager.Email, m.stepManager.StepFailed, map[string]interface{}{
 					"step": m.stepManager.CurrentStep,
 					"time": time.Since(m.startTime),
 					"msg":  m.stepManager.FailureMsg,
 				})
+				if err != nil {
+					log.Printf("Error creating attempt for %s: %v\n", m.stepManager.Email, err)
+				}
 			}()
 		}
 		return m, tea.Quit
@@ -371,7 +374,7 @@ func (m model) View() string {
 			title,
 			timeDisplay,
 			description,
-			promptStyle.Render("If you get in, you get hired."),
+			promptStyle.Render("If you get in, you win the golden ticket (you're eligible for a job at Autonoma)"),
 			helpStyle.Render("Note that we'll use that email to contact you."),
 			emailView,
 		)
@@ -512,7 +515,8 @@ func teaHandler(s ssh.Session, db *database.DB) (tea.Model, []tea.ProgramOption)
 
 func main() {
 	err := godotenv.Load()
-	
+	log.Println("Loading .env file")
+
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	if err != nil {
@@ -520,8 +524,11 @@ func main() {
 	}
 
 	db, err := database.New(os.Getenv("DATABASE_URL"))
+
 	if err != nil {
 		panic(err)
+	} else {
+		log.Println("Successfully connected to the database")
 	}
 	defer db.Close()
 
@@ -559,6 +566,8 @@ func main() {
 		}
 
 		log.Println("SSH host key generated successfully")
+	} else {
+		log.Println("SSH host key already exists")
 	}
 
 	// Set up ssh server

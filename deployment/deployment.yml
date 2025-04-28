@@ -1,3 +1,7 @@
+# Before running this, run the following command:
+# kubectl create secret generic ssh-host-keys --from-file=id_ed25519=.ssh/id_ed25519 --from-file=id_ed25519.pub=.ssh/id_ed25519.pub
+# the public keys are generated the first time you run the project with go run main.go
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -88,7 +92,7 @@ spec:
         - name: emailer
           image: autonomactfregistry.azurecr.io/ctf/emailer:1.0.0
           ports:
-            - containerPort: 8080 # Assuming emailer listens on 8080, adjust if needed
+            - containerPort: 3000
           env:
             - name: RESEND_API_KEY
               valueFrom:
@@ -117,8 +121,8 @@ spec:
     app: emailer
   ports:
     - protocol: TCP
-      port: 8080 # Port the service exposes
-      targetPort: 8080 # Port the container listens on, adjust if needed
+      port: 3000 # Port the service exposes
+      targetPort: 3000 # Port the container listens on, adjust if needed
   type: ClusterIP # Internal service, reachable via emailer-service:8080
 ---
 # --- SSH Application ---
@@ -139,7 +143,7 @@ spec:
     spec:
       containers:
         - name: ssh-app
-          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.10
+          image: autonomactfregistry.azurecr.io/ctf/ssh:1.0.14
           ports:
             - containerPort: 2222 # Default SSH port
           env:
@@ -153,10 +157,7 @@ spec:
                   name: app-secrets
                   key: DATABASE_URL
             - name: EMAILER_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: EMAILER_HOST
+              value: "http://emailer-service:3000"
           resources:
             requests:
               memory: "64Mi"
@@ -164,6 +165,15 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
+          volumeMounts:
+            - name: ssh-host-keys-volume
+              mountPath: /app/.ssh
+              readOnly: true
+      volumes:
+        - name: ssh-host-keys-volume
+          secret:
+            secretName: ssh-host-keys
+            defaultMode: 0400
 ---
 apiVersion: v1
 kind: Service
@@ -177,7 +187,7 @@ spec:
     app: ssh-app
   ports:
     - protocol: TCP
-      port: 8080 # Port exposed by the LoadBalancer
+      port: 22 # Port exposed by the LoadBalancer
       targetPort: 2222 # Port the container listens on
   type: LoadBalancer # Exposes the service externally via a cloud provider's load balancer
 ---

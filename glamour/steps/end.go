@@ -2,6 +2,7 @@ package steps
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -112,11 +113,14 @@ func (s *EndStep) Update(msg tea.Msg) (Step, tea.Cmd) {
 		s.sm.EmailSent = true
 		go email.SendEndEmail(s.sm.Email, "Tom Piaggio", "tom@autonoma.app", s.jwtToken)
 		go func() {
-			s.sm.db.CreateAttempt(s.sm.Email, false, map[string]interface{}{
+			_, err := s.sm.db.CreateAttempt(s.sm.Email, false, map[string]interface{}{
 				"step": s.sm.CurrentStep,
 				"time": time.Since(s.sm.startTime),
 				"msg":  s.sm.FailureMsg,
 			})
+			if err != nil {
+				log.Printf("Error creating attempt for %s: %v\n", s.sm.Email, err)
+			}
 			time.Sleep(5 * time.Second)
 			s.sm.StepFailed = true
 		}()
