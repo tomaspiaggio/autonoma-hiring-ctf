@@ -22,14 +22,20 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/main .
 # Use a minimal base image
 FROM alpine:latest
 
+# Install terminfo database for color support etc.
+RUN apk add --no-cache ncurses-terminfo
+
 # Set the Current Working Directory inside the container
 WORKDIR /app
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/main .
 
-# Expose port 8080 to the outside world
-EXPOSE 8080
+# Set the TERM environment variable
+ENV TERM=xterm-256color
+
+# Expose the correct port the application listens on
+EXPOSE 2222
 
 # Command to run the executable
 CMD ["./main"]
